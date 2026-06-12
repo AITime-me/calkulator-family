@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Калькулятор семейного бюджета</title>
+
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("budgetTheme");
+        if (theme === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <style>
+    /*
+      ============================================================
+      КАЛЬКУЛЯТОР СЕМЕЙНОГО БЮДЖЕТА
+      ============================================================
+
+      Приложение работает в одном HTML-файле.
+
+      Возможности:
+      - выбор месяца;
+      - добавление доходов;
+      - добавление расходов;
+      - указание даты операции внутри выбранного месяца;
+      - подсчёт доходов за месяц;
+      - подсчёт расходов за месяц;
+      - подсчёт остатка;
+      - подсчёт процента расходов от доходов;
+      - фильтрация операций;
+      - редактирование и удаление отдельной операции;
+      - очистка выбранного месяца;
+      - светлая и тёмная тема;
+      - сохранение данных в браузере через localStorage.
+    */
+
+    :root {
+      --bg-body: #f4f6f8;
+      --text-primary: #222;
+      --text-heading: #1f2937;
+      --text-strong: #111827;
+      --text-muted: #6b7280;
+      --text-label: #374151;
+      --card-bg: #ffffff;
+      --card-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+      --border: #d1d5db;
+      --input-bg: #ffffff;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-light: rgba(37, 99, 235, 0.12);
+      --surface-muted: #f9fafb;
+      --surface-hover: #f3f4f6;
+      --hint-bg: #eff6ff;
+      --hint-color: #1e40af;
+      --error-bg: #fef2f2;
+      --error-color: #b91c1c;
+      --delete-bg: #fee2e2;
+      --delete-color: #b91c1c;
+      --delete-hover: #fecaca;
+      --edit-bg: #dbeafe;
+      --edit-color: #1d4ed8;
+      --edit-hover: #bfdbfe;
+      --secondary-bg: #f3f4f6;
+      --secondary-color: #374151;
+      --secondary-hover: #e5e7eb;
+      --positive: #16a34a;
+      --negative: #dc2626;
+      --neutral: #2563eb;
+      --progress-bg: #e5e7eb;
+      --progress-green: #16a34a;
+      --progress-yellow: #f59e0b;
+      --progress-red: #dc2626;
+      --theme-btn-bg: #ffffff;
+      --theme-btn-border: #d1d5db;
+    }
+
+    [data-theme="dark"] {
+      --bg-body: #0f172a;
+      --text-primary: #e2e8f0;
+      --text-heading: #f1f5f9;
+      --text-strong: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-label: #cbd5e1;
+      --card-bg: #1e293b;
+      --card-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      --border: #334155;
+      --input-bg: #0f172a;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-light: rgba(59, 130, 246, 0.2);
+      --surface-muted: #0f172a;
+      --surface-hover: #334155;
+      --hint-bg: #1e3a5f;
+      --hint-color: #93c5fd;
+      --error-bg: #450a0a;
+      --error-color: #fca5a5;
+      --delete-bg: #450a0a;
+      --delete-color: #fca5a5;
+      --delete-hover: #7f1d1d;
+      --edit-bg: #1e3a5f;
+      --edit-color: #93c5fd;
+      --edit-hover: #1d4ed8;
+      --secondary-bg: #334155;
+      --secondary-color: #e2e8f0;
+      --secondary-hover: #475569;
+      --positive: #4ade80;
+      --negative: #f87171;
+      --neutral: #60a5fa;
+      --progress-bg: #334155;
+      --progress-green: #4ade80;
+      --progress-yellow: #fbbf24;
+      --progress-red: #f87171;
+      --theme-btn-bg: #1e293b;
+      --theme-btn-border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg-body);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding: 20px;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .app {
+      max-width: 1150px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .theme-toggle {
+      border: 1px solid var(--theme-btn-border);
+      background: var(--theme-btn-bg);
+      color: var(--text-label);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .theme-toggle:hover {
+      background: var(--surface-hover);
+    }
+
+    .header h1 {
+      font-size: 34px;
+      color: var(--text-heading);
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .month-panel {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 24px;
+      box-shadow: var(--card-shadow);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+    }
+
+    .month-panel label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-label);
+    }
+
+    .month-panel input {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      outline: none;
+      background: var(--input-bg);
+      color: var(--text-primary);
+    }
+
+    .month-panel input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .month-name {
+      font-weight: 800;
+      color: var(--accent);
+      font-size: 18px;
+      padding-bottom: 12px;
+      white-space: nowrap;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 28px;
+    }
+
+    .summary-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      border-left: 6px solid var(--border);
+    }
+
+    .summary-card h3 {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .summary-card .amount {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .income-card {
+      border-left-color: var(--positive);
+    }
+
+    .expense-card {
+      border-left-color: var(--negative);
+    }
+
+    .balance-card {
+      border-left-color: var(--neutral);
+    }
+
+    .percent-card {
+      border-left-color: #9333ea;
+    }
+
+    .positive {
+      color: var(--positive);
+    }
+
+    .negative {
+      color: var(--negative);
+    }
+
+    .neutral {
+      color: var(--neutral);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 25px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .panel h2 {
+      font-size: 22px;
+      color: var(--text-heading);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--text-label);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+      background: var(--input-bg);
+      color: var(--text-primary);
+      transition: 0.2s;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 18px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      margin-top: 5px;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--secondary-bg);
+      color: var(--secondary-color);
+      margin-top: 10px;
+    }
+
+    .btn-secondary:hover {
+      background: var(--secondary-hover);
+    }
+
+    .btn-danger {
+      background: var(--negative);
+      color: #ffffff;
+      margin-top: 12px;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .form-error {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--error-bg);
+      color: var(--error-color);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .hint {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--hint-bg);
+      color: var(--hint-color);
+      font-size: 14px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .filters button {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text-label);
+      transition: 0.2s;
+    }
+
+    .filters button:hover {
+      background: var(--surface-hover);
+    }
+
+    .filters button.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .progress-wrapper {
+      margin-bottom: 20px;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-bottom: 7px;
+      color: var(--text-label);
+      font-weight: 700;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 14px;
+      background: var(--progress-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+
+    .transaction-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .transaction {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 15px;
+      background: var(--surface-muted);
+      border-radius: 12px;
+      border-left: 5px solid var(--border);
+    }
+
+    .transaction.income {
+      border-left-color: var(--positive);
+    }
+
+    .transaction.expense {
+      border-left-color: var(--negative);
+    }
+
+    .transaction-title {
+      font-weight: 800;
+      color: var(--text-strong);
+      margin-bottom: 4px;
+    }
+
+    .transaction-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .transaction-amount {
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .transaction-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .edit-btn,
+    .delete-btn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: 800;
+      transition: 0.2s;
+      font-size: 13px;
+    }
+
+    .edit-btn {
+      background: var(--edit-bg);
+      color: var(--edit-color);
+    }
+
+    .edit-btn:hover {
+      background: var(--edit-hover);
+    }
+
+    .delete-btn {
+      background: var(--delete-bg);
+      color: var(--delete-color);
+    }
+
+    .delete-btn:hover {
+      background: var(--delete-hover);
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 35px 15px;
+      background: var(--surface-muted);
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+    }
+
+    .month-stat {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .small-stat {
+      background: var(--surface-muted);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .small-stat span {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .small-stat strong {
+      font-size: 16px;
+      color: var(--text-strong);
+    }
+
+    @media (max-width: 950px) {
+      .summary {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 12px;
+      }
+
+      .header h1 {
+        font-size: 26px;
+      }
+
+      .header-top {
+        justify-content: center;
+      }
+
+      .month-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .month-name {
+        padding-bottom: 0;
+      }
+
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .month-stat {
+        grid-template-columns: 1fr;
+      }
+
+      .transaction {
+        grid-template-columns: 1fr;
+      }
+
+      .transaction-amount {
+        font-size: 18px;
+      }
+
+      .transaction-actions {
+        width: 100%;
+      }
+
+      .edit-btn,
+      .delete-btn {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-top">
+        <button
+          type="button"
+          class="theme-toggle"
+          id="themeToggleBtn"
+          aria-label="Переключить на тёмную тему"
+        >
+          Тёмная тема
+        </button>
+      </div>
+
+      <h1>Калькулятор семейного бюджета</h1>
+      <p>
+        Вносите доходы и расходы в течение месяца, а приложение посчитает,
+        сколько денег пришло, ушло и героически осталось.
+      </p>
+    </header>
+
+    <section class="month-panel">
+      <div>
+        <label for="monthInput">Выберите месяц для ведения бюджета</label>
+        <input type="month" id="monthInput" />
+      </div>
+
+      <div class="month-name" id="selectedMonthName">
+        Текущий месяц
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="summary-card income-card">
+        <h3>Доходы за месяц</h3>
+        <div class="amount positive" id="totalIncome">0 ₽</div>
+      </div>
+
+      <div class="summary-card expense-card">
+        <h3>Расходы за месяц</h3>
+        <div class="amount negative" id="totalExpense">0 ₽</div>
+      </div>
+
+      <div class="summary-card balance-card">
+        <h3>Остаток за месяц</h3>
+        <div class="amount neutral" id="balance">0 ₽</div>
+      </div>
+
+      <div class="summary-card percent-card">
+        <h3>Потрачено от дохода</h3>
+        <div class="amount" id="expensePercent">0%</div>
+      </div>
+    </section>
+
+    <main class="main">
+      <section class="panel">
+        <h2 id="formPanelTitle">Добавить операцию</h2>
+
+        <div class="form-error hidden" id="formError" role="alert"></div>
+
+        <form id="budgetForm">
+          <div class="form-group">
+            <label for="type">Тип операции</label>
+            <select id="type" required>
+              <option value="income">Доход</option>
+              <option value="expense">Расход</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="title">Название</label>
+            <input
+              type="text"
+              id="title"
+              placeholder="Например: зарплата, продукты, аренда"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="category">Категория</label>
+            <select id="category" required></select>
+          </div>
+
+          <div class="form-group">
+            <label for="amount">Сумма в рублях</label>
+            <input
+              type="number"
+              id="amount"
+              placeholder="Например: 5000"
+              min="1"
+              step="1"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="date">Дата операции в выбранном месяце</label>
+            <input type="date" id="date" required />
+          </div>
+
+          <button class="btn btn-primary" type="submit" id="submitBtn">
+            Добавить операцию
+          </button>
+        </form>
+
+        <button
+          class="btn btn-secondary hidden"
+          id="cancelEditBtn"
+          type="button"
+          aria-label="Отменить редактирование операции"
+        >
+          Отменить редактирование
+        </button>
+
+        <button class="btn btn-danger" id="clearMonthBtn" type="button">
+          Очистить выбранный месяц
+        </button>
+
+        <div class="hint">
+          Совет: сначала выберите месяц сверху, затем добавляйте операции по датам.
+          Каждый месяц хранится отдельно.
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Операции за выбранный месяц</h2>
+
+        <div class="month-stat">
+          <div class="small-stat">
+            <span>Всего операций</span>
+            <strong id="operationsCount">0</strong>
+          </div>
+
+          <div class="small-stat">
+            <span>Доходных операций</span>
+            <strong id="incomeCount">0</strong>
+          </div>
+
+          <div class="small-stat">
+            <span>Расходных операций</span>
+            <strong id="expenseCount">0</strong>
+          </div>
+        </div>
+
+        <div class="filters">
+          <button type="button" class="active" data-filter="all">Все</button>
+          <button type="button" data-filter="income">Доходы</button>
+          <button type="button" data-filter="expense">Расходы</button>
+        </div>
+
+        <div class="progress-wrapper">
+          <div class="progress-label">
+            <span>Использование месячного дохода</span>
+            <span id="progressText">0%</span>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+
+        <div class="transaction-list" id="transactionList"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /*
+      ============================================================
+      JAVASCRIPT-ЛОГИКА ПРИЛОЖЕНИЯ
+      ============================================================
+    */
+
+    const STORAGE_KEY = "monthlyFamilyBudget";
+    const THEME_KEY = "budgetTheme";
+
+    const INCOME_CATEGORIES = [
+      "Зарплата",
+      "Подработка",
+      "Пособия",
+      "Подарки",
+      "Проценты по вкладам",
+      "Другое"
+    ];
+
+    const EXPENSE_CATEGORIES = [
+      "Продукты",
+      "Жильё",
+      "Коммунальные услуги",
+      "Транспорт",
+      "Здоровье",
+      "Образование",
+      "Развлечения",
+      "Одежда",
+      "Дети",
+      "Кредиты",
+      "Накопления",
+      "Сервисы",
+      "Обучение ребёнка",
+      "Курсы",
+      "Другое"
+    ];
+
+    const monthInput = document.getElementById("monthInput");
+    const selectedMonthName = document.getElementById("selectedMonthName");
+
+    const form = document.getElementById("budgetForm");
+    const formPanelTitle = document.getElementById("formPanelTitle");
+    const formError = document.getElementById("formError");
+    const typeInput = document.getElementById("type");
+    const titleInput = document.getElementById("title");
+    const categoryInput = document.getElementById("category");
+    const amountInput = document.getElementById("amount");
+    const dateInput = document.getElementById("date");
+    const submitBtn = document.getElementById("submitBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+
+    const totalIncomeEl = document.getElementById("totalIncome");
+    const totalExpenseEl = document.getElementById("totalExpense");
+    const balanceEl = document.getElementById("balance");
+    const expensePercentEl = document.getElementById("expensePercent");
+
+    const operationsCountEl = document.getElementById("operationsCount");
+    const incomeCountEl = document.getElementById("incomeCount");
+    const expenseCountEl = document.getElementById("expenseCount");
+
+    const transactionList = document.getElementById("transactionList");
+    const clearMonthBtn = document.getElementById("clearMonthBtn");
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+
+    const progressFill = document.getElementById("progressFill");
+    const progressText = document.getElementById("progressText");
+
+    const filterButtons = document.querySelectorAll(".filters button");
+
+    let currentFilter = "all";
+    let editingId = null;
+
+    function loadTransactions() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+
+        if (!stored) {
+          return [];
+        }
+
+        const parsed = JSON.parse(stored);
+
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+
+        return parsed;
+      } catch (error) {
+        return [];
+      }
+    }
+
+    let transactions = loadTransactions();
+
+    function generateId() {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+
+      return (
+        Date.now().toString(36) +
+        "-" +
+        Math.random().toString(36).slice(2, 11) +
+        "-" +
+        Math.random().toString(36).slice(2, 11)
+      );
+    }
+
+    function getCurrentMonthValue() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+
+      return year + "-" + month;
+    }
+
+    monthInput.value = getCurrentMonthValue();
+
+    function getSelectedMonth() {
+      return monthInput.value;
+    }
+
+    function getReadableMonth(monthValue) {
+      const parts = monthValue.split("-");
+      const year = Number(parts[0]);
+      const monthIndex = Number(parts[1]) - 1;
+
+      const date = new Date(year, monthIndex, 1);
+
+      return date.toLocaleDateString("ru-RU", {
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function showFormError(message) {
+      formError.textContent = message;
+      formError.classList.remove("hidden");
+    }
+
+    function hideFormError() {
+      formError.textContent = "";
+      formError.classList.add("hidden");
+    }
+
+    function validateFormData() {
+      const selectedMonth = getSelectedMonth();
+      const title = titleInput.value.trim();
+      const category = categoryInput.value;
+      const amountRaw = amountInput.value.trim();
+      const amount = Number(amountInput.value);
+      const date = dateInput.value;
+
+      if (!title) {
+        return "Введите название операции. Пустые пробелы не допускаются.";
+      }
+
+      if (!category) {
+        return "Выберите категорию операции.";
+      }
+
+      if (!amountRaw) {
+        return "Введите сумму операции.";
+      }
+
+      if (!Number.isFinite(amount)) {
+        return "Сумма должна быть числом. Проверьте, что в поле нет букв или лишних символов.";
+      }
+
+      if (amount <= 0) {
+        return "Сумма должна быть больше нуля. Ноль и отрицательные значения не допускаются.";
+      }
+
+      if (!Number.isInteger(amount)) {
+        return "Сумма должна быть целым числом рублей без копеек.";
+      }
+
+      if (!date) {
+        return "Выберите дату операции.";
+      }
+
+      if (!date.startsWith(selectedMonth)) {
+        return (
+          "Дата операции должна быть внутри выбранного месяца: " +
+          getReadableMonth(selectedMonth) +
+          "."
+        );
+      }
+
+      return null;
+    }
+
+    function updateDateLimits() {
+      const selectedMonth = getSelectedMonth();
+      const parts = selectedMonth.split("-");
+
+      const year = Number(parts[0]);
+      const month = Number(parts[1]);
+
+      const firstDay = selectedMonth + "-01";
+      const lastDayDate = new Date(year, month, 0);
+      const lastDay = selectedMonth + "-" + String(lastDayDate.getDate()).padStart(2, "0");
+
+      dateInput.min = firstDay;
+      dateInput.max = lastDay;
+
+      if (!dateInput.value || !dateInput.value.startsWith(selectedMonth)) {
+        dateInput.value = firstDay;
+      }
+    }
+
+    function updateCategories(preferredCategory) {
+      const type = typeInput.value;
+      const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+      categoryInput.textContent = "";
+
+      categories.forEach(function (category) {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        categoryInput.appendChild(option);
+      });
+
+      if (preferredCategory && categories.indexOf(preferredCategory) === -1) {
+        const legacyOption = document.createElement("option");
+        legacyOption.value = preferredCategory;
+        legacyOption.textContent = preferredCategory;
+        categoryInput.appendChild(legacyOption);
+      }
+
+      if (preferredCategory) {
+        categoryInput.value = preferredCategory;
+      }
+    }
+
+    function setEditMode(transaction) {
+      editingId = transaction.id;
+      formPanelTitle.textContent = "Редактировать операцию";
+      submitBtn.textContent = "Сохранить изменения";
+      cancelEditBtn.classList.remove("hidden");
+
+      typeInput.value = transaction.type;
+      updateCategories(transaction.category);
+      titleInput.value = transaction.title;
+      amountInput.value = String(transaction.amount);
+      dateInput.value = transaction.date;
+      hideFormError();
+    }
+
+    function resetFormState() {
+      editingId = null;
+      formPanelTitle.textContent = "Добавить операцию";
+      submitBtn.textContent = "Добавить операцию";
+      cancelEditBtn.classList.add("hidden");
+      hideFormError();
+      form.reset();
+      typeInput.value = "income";
+      updateCategories();
+      updateDateLimits();
+    }
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat("ru-RU", {
+        style: "currency",
+        currency: "RUB",
+        maximumFractionDigits: 0
+      }).format(value);
+    }
+
+    function formatDate(dateString) {
+      const parts = dateString.split("-");
+      const year = Number(parts[0]);
+      const month = Number(parts[1]) - 1;
+      const day = Number(parts[2]);
+      const date = new Date(year, month, day);
+
+      return date.toLocaleDateString("ru-RU");
+    }
+
+    function saveTransactions() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }
+
+    function getMonthTransactions() {
+      const selectedMonth = getSelectedMonth();
+
+      return transactions.filter(function (transaction) {
+        return transaction.month === selectedMonth;
+      });
+    }
+
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      hideFormError();
+
+      const validationError = validateFormData();
+
+      if (validationError) {
+        showFormError(validationError);
+        return;
+      }
+
+      const selectedMonth = getSelectedMonth();
+      const type = typeInput.value;
+      const title = titleInput.value.trim();
+      const category = categoryInput.value;
+      const amount = Number(amountInput.value);
+      const date = dateInput.value;
+
+      if (editingId !== null) {
+        const index = transactions.findIndex(function (transaction) {
+          return transaction.id === editingId;
+        });
+
+        if (index === -1) {
+          showFormError("Не удалось найти редактируемую операцию. Попробуйте снова.");
+          resetFormState();
+          updateApp();
+          return;
+        }
+
+        transactions[index] = {
+          id: editingId,
+          month: selectedMonth,
+          type: type,
+          title: title,
+          category: category,
+          amount: amount,
+          date: date
+        };
+      } else {
+        transactions.push({
+          id: generateId(),
+          month: selectedMonth,
+          type: type,
+          title: title,
+          category: category,
+          amount: amount,
+          date: date
+        });
+      }
+
+      saveTransactions();
+      resetFormState();
+      updateApp();
+    }
+
+    function deleteTransaction(id) {
+      if (editingId === id) {
+        resetFormState();
+      }
+
+      transactions = transactions.filter(function (transaction) {
+        return transaction.id !== id;
+      });
+
+      saveTransactions();
+      updateApp();
+    }
+
+    function startEditTransaction(id) {
+      const transaction = transactions.find(function (item) {
+        return item.id === id;
+      });
+
+      if (!transaction) {
+        return;
+      }
+
+      setEditMode(transaction);
+      titleInput.focus();
+    }
+
+    function clearSelectedMonth() {
+      const monthName = getReadableMonth(getSelectedMonth());
+
+      const isConfirmed = confirm(
+        "Вы уверены, что хотите удалить все операции за " + monthName + "?"
+      );
+
+      if (!isConfirmed) {
+        return;
+      }
+
+      const selectedMonth = getSelectedMonth();
+
+      if (editingId !== null) {
+        const editingTransaction = transactions.find(function (transaction) {
+          return transaction.id === editingId;
+        });
+
+        if (editingTransaction && editingTransaction.month === selectedMonth) {
+          resetFormState();
+        }
+      }
+
+      transactions = transactions.filter(function (transaction) {
+        return transaction.month !== selectedMonth;
+      });
+
+      saveTransactions();
+      updateApp();
+    }
+
+    function calculateSummary() {
+      const monthTransactions = getMonthTransactions();
+
+      const totalIncome = monthTransactions
+        .filter(function (transaction) {
+          return transaction.type === "income";
+        })
+        .reduce(function (sum, transaction) {
+          return sum + transaction.amount;
+        }, 0);
+
+      const totalExpense = monthTransactions
+        .filter(function (transaction) {
+          return transaction.type === "expense";
+        })
+        .reduce(function (sum, transaction) {
+          return sum + transaction.amount;
+        }, 0);
+
+      const balance = totalIncome - totalExpense;
+
+      let expensePercent = 0;
+
+      if (totalIncome > 0) {
+        expensePercent = Math.round((totalExpense / totalIncome) * 100);
+      }
+
+      const incomeCount = monthTransactions.filter(function (transaction) {
+        return transaction.type === "income";
+      }).length;
+
+      const expenseCount = monthTransactions.filter(function (transaction) {
+        return transaction.type === "expense";
+      }).length;
+
+      return {
+        totalIncome: totalIncome,
+        totalExpense: totalExpense,
+        balance: balance,
+        expensePercent: expensePercent,
+        operationsCount: monthTransactions.length,
+        incomeCount: incomeCount,
+        expenseCount: expenseCount
+      };
+    }
+
+    function renderSummary() {
+      const summary = calculateSummary();
+
+      totalIncomeEl.textContent = formatMoney(summary.totalIncome);
+      totalExpenseEl.textContent = formatMoney(summary.totalExpense);
+      balanceEl.textContent = formatMoney(summary.balance);
+      expensePercentEl.textContent = summary.expensePercent + "%";
+
+      operationsCountEl.textContent = summary.operationsCount;
+      incomeCountEl.textContent = summary.incomeCount;
+      expenseCountEl.textContent = summary.expenseCount;
+
+      if (summary.balance >= 0) {
+        balanceEl.className = "amount positive";
+      } else {
+        balanceEl.className = "amount negative";
+      }
+
+      progressFill.style.width = Math.min(summary.expensePercent, 100) + "%";
+      progressText.textContent = summary.expensePercent + "%";
+
+      if (summary.expensePercent < 50) {
+        progressFill.style.background = "var(--progress-green)";
+      } else if (summary.expensePercent < 80) {
+        progressFill.style.background = "var(--progress-yellow)";
+      } else {
+        progressFill.style.background = "var(--progress-red)";
+      }
+    }
+
+    function renderEmptyState() {
+      const emptyEl = document.createElement("div");
+      emptyEl.className = "empty";
+      emptyEl.textContent =
+        "За выбранный месяц операций пока нет. Добавьте первый доход или расход.";
+      transactionList.appendChild(emptyEl);
+    }
+
+    function createActionButton(className, text, ariaLabel, onClick) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = className;
+      button.textContent = text;
+      button.setAttribute("aria-label", ariaLabel);
+      button.addEventListener("click", onClick);
+      return button;
+    }
+
+    function renderTransactions() {
+      while (transactionList.firstChild) {
+        transactionList.removeChild(transactionList.firstChild);
+      }
+
+      let visibleTransactions = getMonthTransactions();
+
+      if (currentFilter !== "all") {
+        visibleTransactions = visibleTransactions.filter(function (transaction) {
+          return transaction.type === currentFilter;
+        });
+      }
+
+      const sortedTransactions = visibleTransactions.slice().sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+
+      if (sortedTransactions.length === 0) {
+        renderEmptyState();
+        return;
+      }
+
+      sortedTransactions.forEach(function (transaction) {
+        const transactionEl = document.createElement("div");
+        transactionEl.className = "transaction " + transaction.type;
+
+        const sign = transaction.type === "income" ? "+" : "-";
+        const amountClass = transaction.type === "income" ? "positive" : "negative";
+        const typeText = transaction.type === "income" ? "Доход" : "Расход";
+
+        const infoDiv = document.createElement("div");
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "transaction-title";
+        titleDiv.textContent = transaction.title;
+
+        const metaDiv = document.createElement("div");
+        metaDiv.className = "transaction-meta";
+        metaDiv.textContent =
+          typeText + " · " + transaction.category + " · " + formatDate(transaction.date);
+
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+
+        const amountDiv = document.createElement("div");
+        amountDiv.className = "transaction-amount " + amountClass;
+        amountDiv.textContent = sign + " " + formatMoney(transaction.amount);
+
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "transaction-actions";
+
+        const editBtn = createActionButton(
+          "edit-btn",
+          "Редактировать",
+          "Редактировать операцию: " + transaction.title,
+          function () {
+            startEditTransaction(transaction.id);
+          }
+        );
+
+        const deleteBtn = createActionButton(
+          "delete-btn",
+          "Удалить",
+          "Удалить операцию: " + transaction.title,
+          function () {
+            deleteTransaction(transaction.id);
+          }
+        );
+
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
+
+        transactionEl.appendChild(infoDiv);
+        transactionEl.appendChild(amountDiv);
+        transactionEl.appendChild(actionsDiv);
+
+        transactionList.appendChild(transactionEl);
+      });
+    }
+
+    function renderSelectedMonthName() {
+      const readableMonth = getReadableMonth(getSelectedMonth());
+
+      selectedMonthName.textContent =
+        readableMonth.charAt(0).toUpperCase() + readableMonth.slice(1);
+    }
+
+    function setupFilters() {
+      filterButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          filterButtons.forEach(function (btn) {
+            btn.classList.remove("active");
+          });
+
+          button.classList.add("active");
+          currentFilter = button.dataset.filter;
+
+          renderTransactions();
+        });
+      });
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+
+      if (theme === "dark") {
+        themeToggleBtn.textContent = "Светлая тема";
+        themeToggleBtn.setAttribute("aria-label", "Переключить на светлую тему");
+      } else {
+        themeToggleBtn.textContent = "Тёмная тема";
+        themeToggleBtn.setAttribute("aria-label", "Переключить на тёмную тему");
+      }
+    }
+
+    function loadTheme() {
+      try {
+        const storedTheme = localStorage.getItem(THEME_KEY);
+        return storedTheme === "dark" ? "dark" : "light";
+      } catch (error) {
+        return "light";
+      }
+    }
+
+    function saveTheme(theme) {
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch (error) {}
+    }
+
+    function toggleTheme() {
+      const currentTheme =
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+
+      applyTheme(nextTheme);
+      saveTheme(nextTheme);
+    }
+
+    function updateApp() {
+      updateDateLimits();
+      renderSelectedMonthName();
+      renderSummary();
+      renderTransactions();
+    }
+
+    monthInput.addEventListener("change", function () {
+      currentFilter = "all";
+
+      filterButtons.forEach(function (button) {
+        button.classList.remove("active");
+
+        if (button.dataset.filter === "all") {
+          button.classList.add("active");
+        }
+      });
+
+      updateApp();
+    });
+
+    typeInput.addEventListener("change", function () {
+      updateCategories();
+    });
+
+    form.addEventListener("submit", handleFormSubmit);
+    cancelEditBtn.addEventListener("click", resetFormState);
+    clearMonthBtn.addEventListener("click", clearSelectedMonth);
+    themeToggleBtn.addEventListener("click", toggleTheme);
+
+    applyTheme(loadTheme());
+    setupFilters();
+    updateCategories();
+    updateApp();
+  </script>
+</body>
+</html>
